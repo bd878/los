@@ -1,6 +1,14 @@
 #include "lib.h"
 #include <dirent.h>
 
+/*
+* Lists files in provided directory
+*
+* Usage:
+*   ls .
+* 
+*/
+
 int
 main(int argc, char *argv[])
 {
