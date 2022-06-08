@@ -9,12 +9,19 @@
 *
 */
 
+static void sig_int(int);
+
 int
 main(void)
 {
   char buf[MAXLINE];
   pid_t pid;
   int status;
+
+  if (signal(SIGINT, sig_int) == SIG_ERR) {
+    printf("signal call error\n");
+    exit(1);
+  }
 
   printf("%% "); /* echo greeting */
 
@@ -41,3 +48,8 @@ main(void)
   exit(0);
 }
 
+void
+sig_int(int signo)
+{
+  printf("interrupted\n%% ");
+}
