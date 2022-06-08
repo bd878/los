@@ -28,6 +28,10 @@
 #define INET_ADDRSTRLEN 16
 #endif
 
+#ifndef MAXLINE
+#define MAXLINE 4096 
+#endif
+
 typedef void Sigfunc(int);
 
 int Socket(int, int, int);
