@@ -14,7 +14,7 @@ main(int argc, char* argv[])
   struct stat buf1, buf2;
 
   if (argc != 3) {
-    printf("Usage: same_dirs_test dir1 dir2");
+    printf("Usage: same_dirs_test dir1 dir2\n");
     exit(1);
   }
 
@@ -28,10 +28,10 @@ main(int argc, char* argv[])
     exit(1);
   }
 
-  if (buf1.ino_t == buf2.ino_t)
+  if (buf1.st_ino == buf2.st_ino)
     printf("it is the same file\n");
   else
-    printf("these are two differend files\n");
+    printf("these are two different files\n");
 
   exit(0);
 }

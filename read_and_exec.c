@@ -5,7 +5,7 @@
 * and executes them
 *
 * If it reminds you shell interpreter
-* do not confuse, it is
+* shall not be confused, it is
 *
 */
 
