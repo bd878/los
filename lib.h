@@ -33,6 +33,13 @@
 #define MAXLINE 4096 
 #endif
 
+/*
+ * Default file access permissions for new files.
+ */
+#ifndef FILE_MODE
+#define	FILE_MODE	(S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH)
+#endif
+
 typedef void Sigfunc(int);
 
 int Socket(int, int, int);
