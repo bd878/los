@@ -12,7 +12,6 @@
 * read/write
 *
 */
-
 int
 main(void)
 {
@@ -20,6 +19,9 @@ main(void)
   char buf[BUFFSIZE];
 
   while ((n = read(STDIN_FILENO, buf, BUFFSIZE)) > 0) {
+    /* Allow to test io performance depending
+     * on BUFFSIZE size
+     **/
     if (write(STDOUT_FILENO, buf, n) != n) {
       printf("stdout write error");
       exit(1);
