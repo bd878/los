@@ -11,7 +11,7 @@ dedup(int fd, int fd2)
   close(fd2);
 
   int fds[MAX_FD];
-  int i = 0;
+  size_t i = 0;
   fds[i] = dup(fd);
   while (fds[i] != fd2 && i+1 < MAX_FD) {
     i++;
@@ -21,7 +21,7 @@ dedup(int fd, int fd2)
     }
   }
 
-  close_fds(fds, sizeof(fds), fd2);
+  close_fds(fds, i, fd2);
 
   return fd2;
 }
