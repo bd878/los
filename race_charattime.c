@@ -1,14 +1,25 @@
 #include "lib.h"
 
-static void charattime(char *);
+static void charatatime(char *);
 
 int
 main(void)
 {
+  pid_t pid;
+
+  if ((pid = fork()) < 0) {
+    printf("failed to call fork\n");
+    exit(1);
+  } else if (pid == 0) {
+    charatatime("from child proc\n");
+  } else {
+    charatatime("from parent proc\n");
+  }
+  exit(0);
 }
 
 static void
-charattime(char *str)
+charatatime(char *str)
 {
   char *ptr;
   int c;
