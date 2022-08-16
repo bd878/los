@@ -17,6 +17,7 @@
 #include <poll.h>
 #include <sys/time.h>
 #include <fcntl.h>
+#include <stdarg.h>
 
 #define min(a, b) ((a) < (b) ? (a) : (b))
 #define max(a, b) ((a) > (b) ? (a) : (b))
@@ -40,7 +41,7 @@
 #define	FILE_MODE	(S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH)
 #endif
 
-typedef void Sigfunc(int);
+typedef void Sigfunc(int); /* for signal handlers */
 
 int Socket(int, int, int);
 void Bind(int, const struct sockaddr *, size_t);
@@ -68,5 +69,7 @@ void Shutdown(int, int);
 ssize_t Write(int, const void *, size_t);
 long Sysconf(int);
 void Getsockopt(int fd, int level, int optname, void *optval, socklen_t *optlenptr);
+
+void err_dump(const char *, ...) __attribute__((noreturn));
 
 #endif

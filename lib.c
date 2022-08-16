@@ -317,3 +317,15 @@ Getsockopt(int fd, int level, int optname, void *optval, socklen_t *optlenptr) {
     perror("getsockopt");
   }
 }
+
+void
+err_dump(const char *fmt, ...)
+{
+  va_list ap;
+
+  va_start(ap, fmt);
+  /* err_doit(1, errno, fmt, ap); */
+  va_end(ap);
+  abort(); /* dump core and terminate */
+  exit(1); /* should never reach */
+}
