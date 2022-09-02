@@ -69,7 +69,9 @@ void Shutdown(int, int);
 ssize_t Write(int, const void *, size_t);
 long Sysconf(int);
 void Getsockopt(int fd, int level, int optname, void *optval, socklen_t *optlenptr);
+void pr_exit(int);
 
 void err_dump(const char *, ...) __attribute__((noreturn));
+void err_sys(const char *, ...) __attribute__((noreturn));
 
 #endif
