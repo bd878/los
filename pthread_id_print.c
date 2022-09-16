@@ -27,6 +27,9 @@ printids(const char *s)
 
   pid = getpid();
   tid = pthread_self();
+  /* pthread_t might be a struct */
+  /* if we output it, an address would output. */
+  /* Process id of these threads is the same */
   printf("%s pid %u tid %u (0x%x)\n", s, (unsigned int)pid,
     (unsigned int)tid, (unsigned int)tid);
 }
