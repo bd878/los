@@ -5,14 +5,14 @@
 #define HASH(id) (((unsigned long)id)%NHASH)
 
 struct foo *fh[NHASH];
-
 pthread_mutex_t hashlock = PTHREAD_MUTEX_INITIALIZER;
+/* hashlock protectes fh hash table and f_next pointer */
 /* initializer for statically allocated mutex only */
 /* for dynamic allocation use pthread_mutex_init */
 
 struct foo {
   int f_count;
-  pthread_mutex_t f_lock;
+  pthread_mutex_t f_lock; /* protects foo struct fields */
   int f_id;
   struct foo *f_next; /* guarded via hashlock mutex */
   /* ... other struct fields ... */
@@ -32,6 +32,8 @@ foo_alloc(int id) /* dynamically creates an object */
       return(NULL);
     }
     idx = HASH(fp);
+
+    /* lock because fh hash table is global */
     pthread_mutex_lock(&hashlock);
     fp->f_next = fh[idx];
     fh[idx] = fp->f_next;
