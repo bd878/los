@@ -16,6 +16,12 @@ char buf[] = "write in stdout\n";
  *   code segment is shared still)
  * How many lines will be output to STDIN (
  *   other file)?
+ * write syscall does not buffer,
+ *   so it prints one line before fork.
+ * Stdio buffers, and
+ *   printf outputs two lines after fork,
+ *   because buffers duplicates between
+ *   parent and child processes
  *
  * ./a.out
  * ./a.out > output.txt
