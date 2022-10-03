@@ -6,15 +6,15 @@
 
 struct foo *fh[NHASH];
 pthread_mutex_t hashlock = PTHREAD_MUTEX_INITIALIZER;
-/* hashlock protectes fh hash table and f_next pointer */
-/* initializer for statically allocated mutex only */
-/* for dynamic allocation use pthread_mutex_init */
+/* now hashlock protectes fh hash table, f_next pointer */
+/* and a f_count counter */
+/* it is considerably simplifies the program */
 
 struct foo {
-  int f_count;
+  int f_count; /* hashlock */
   pthread_mutex_t f_lock; /* protects foo struct fields */
   int f_id;
-  struct foo *f_next; /* guarded via hashlock mutex */
+  struct foo *f_next; /* hashlock */
   /* ... other struct fields ... */
 };
 
@@ -33,10 +33,9 @@ foo_alloc(int id) /* dynamically creates an object */
     }
     idx = HASH(fp);
 
-    /* lock because fh hash table is global */
     pthread_mutex_lock(&hashlock);
     fp->f_next = fh[idx];
-    fh[idx] = fp->f_next;
+    fh[idx] = fp;
     pthread_mutex_lock(&fp->f_lock);
     pthread_mutex_unlock(&hashlock);
     /* ... continue initialization ... */
@@ -48,9 +47,9 @@ foo_alloc(int id) /* dynamically creates an object */
 void
 foo_hold(struct foo *fp) /* increase pointer */
 {
-  pthread_mutex_lock(&fp->f_lock);
+  pthread_mutex_lock(&hashlock);
   fp->f_count++;
-  pthread_mutex_unlock(&fp->f_lock);
+  pthread_mutex_unlock(&hashlock);
 }
 
 struct foo *
@@ -61,7 +60,7 @@ foo_find(int id) /* find existing object to check if it is possible to release m
   pthread_mutex_lock(&hashlock);
   for (fp = fh[HASH(id)]; fp != NULL; fp = fp->f_next) {
     if (fp->f_id == id) {
-      foo_hold(fp);
+      fp->f_count++;
       break;
     }
   }
@@ -75,36 +74,22 @@ foo_rele(struct foo *fp) /* decrease pointer */
   struct foo *tfp;
   int idx;
 
-  pthread_mutex_lock(&fp->f_lock);
-  if (fp->f_count == 1) { /* last grasp */
-    pthread_mutex_unlock(&fp->f_lock);
-    pthread_mutex_lock(&hashlock);
-    pthread_mutex_lock(&fp->f_lock);
-    /* check repeat */
-    if (fp->f_count != 1) {
-      fp->f_count--;
-      pthread_mutex_unlock(&fp->f_lock);
-      pthread_mutex_unlock(&hashlock);
-      return;
-    }
-    /* remove from list */
+  pthread_mutex_lock(&hashlock);
+  if (--fp->f_count == 0) { /* last grasp */
     idx = HASH(fp->f_id);
     tfp = fh[idx];
     if (tfp == fp) {
       fh[idx] = fp->f_next;
     } else {
-      while (tfp->f_next != fp) {
+      while (tfp->f_next != fp)
         tfp = tfp->f_next;
-      }
       tfp->f_next = fp->f_next;
     }
     pthread_mutex_unlock(&hashlock);
-    pthread_mutex_unlock(&fp->f_lock);
     pthread_mutex_destroy(&fp->f_lock);
     free(fp);
   } else {
-    fp->f_count--;
-    pthread_mutex_unlock(&fp->f_lock);
+    pthread_mutex_unlock(&hashlock);
   }
 }
 
