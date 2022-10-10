@@ -87,7 +87,7 @@ main()
 
   /* start 8 threads */
   gettimeofday(&start, NULL);
-  pthread_barrier_init(&b, NULL, NTHR+1);
+  pthread_barrier_init(&b, NULL, NTHR+1); /* +1 main merge thread */
   for (i = 0; i < NTHR; i++) {
     err = pthread_create(&tid, NULL, thr_fn, (void *)(i * TNUM));
     if (err != 0)
