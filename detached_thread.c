@@ -24,8 +24,3 @@ makethread(void *(*fn)(void *), void *arg)
                                /* since thread is detached */
   return(err);
 }
-
-int
-main()
-{
-}
