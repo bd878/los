@@ -27,7 +27,7 @@ getenv_r(const char *name, char *buf, int buflen)
 {
   int i, len, olen;
 
-  /* pthread_once guarantees to execute once for all threads *
+  /* pthread_once guarantees to execute once for all threads */
   /* in a process */
   pthread_once(&init_done, thread_init);
   len = strlen(name);
