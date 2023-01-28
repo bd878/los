@@ -71,6 +71,8 @@ long Sysconf(int);
 void Getsockopt(int fd, int level, int optname, void *optval, socklen_t *optlenptr);
 void pr_exit(int);
 
+long open_max(void);
+
 void err_dump(const char *, ...) __attribute__((noreturn));
 void err_sys(const char *, ...) __attribute__((noreturn));
 void err_quit(const char *, ...) __attribute__((noreturn));
