@@ -1,6 +1,11 @@
 #include "lib.h"
+#include <limits.h>
+#include <sys/resource.h>
 
 static void err_doit(int, int, const char *, va_list);
+
+/* random value provided OPEN_MAX is not defined */
+#define OPEN_MAX_GUESS 256
 
 int
 Socket(int family, int type, int protocol) {
@@ -416,3 +421,16 @@ err_doit(int errnoflag, int error, const char *fmt, va_list ap)
   fflush(NULL); /* fflush all stdio output streams */
 }
 
+/*
+ * Nonfatal error unrelated to a system call.
+ * Print a message and return.
+ */
+void
+err_msg(const char *fmt, ...)
+{
+  va_list   ap;
+
+  va_start(ap, fmt);
+  err_doit(0, 0, fmt, ap);
+  va_end(ap);
+}
