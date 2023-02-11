@@ -1,4 +1,5 @@
 #include "lib.h"
+#include "pty_open.h"
 #include <stdlib.h>
 #include <errno.h>
 #include <fcntl.h>

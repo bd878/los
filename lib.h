@@ -3,6 +3,7 @@
 
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/termios.h>  /* for winsize */
 #include <string.h>
 #include <errno.h>
 #include <sys/socket.h>
@@ -32,6 +33,10 @@
 
 #ifndef MAXLINE
 #define MAXLINE 4096 
+#endif
+
+#if defined(MACOS) || !defined(TIOCGWINSZ)
+#include <sys/ioctl.h>
 #endif
 
 /*
