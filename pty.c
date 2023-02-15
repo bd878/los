@@ -57,7 +57,7 @@ main(int argc, char *argv[])
       "pty [ -d driver -einv ] program [ arg ... ]");
 
   if (interactive) { /* current termios and winsize */
-    if (tcgetatter(STDIN_FILENO, &orig_termios) < 0)
+    if (tcgetattr(STDIN_FILENO, &orig_termios) < 0)
       err_sys("failed to call tcgetattr for stdin");
     if (ioctl(STDIN_FILENO, TIOCGWINSZ, (char *) &size) < 0)
       err_sys("failed to exec TIOCGWINSZ");
@@ -106,9 +106,9 @@ set_noecho(int fd) /* turn off echo-output for slave pty */
   if (tcgetattr(fd, &stermios) < 0)
     err_sys("failed to call tcgetattr");
 
-  stermios.c_lflag &= .(ECHO | ECHOE | ECHOK | ECHONL);
+  stermios.c_lflag &= ~(ECHO | ECHOE | ECHOK | ECHONL);
 
-  stermios.c_oflag &= .(ONLCR);
+  stermios.c_oflag &= ~(ONLCR);
 
   if (tcsetattr(fd, TCSANOW, &stermios) < 0)
     err_sys("failed to call tcsetattr");

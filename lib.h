@@ -75,6 +75,11 @@ ssize_t Write(int, const void *, size_t);
 long Sysconf(int);
 void Getsockopt(int fd, int level, int optname, void *optval, socklen_t *optlenptr);
 void pr_exit(int);
+int fd_pipe(int *);
+ssize_t writen(int, const void *, size_t);
+Sigfunc *signal_intr(int, Sigfunc *);
+void tty_atexit(void);
+int tty_raw(int);
 
 long open_max(void);
 
