@@ -10,7 +10,7 @@ main(void)
   if (isatty(STDIN_FILENO) == 0)
     err_quit("standard input device is not a terminal");
 
-  if ((vdisablea = fpathconf(STDIN_FILENO, _PC_VDISABLE)) < 0)
+  if ((vdisable = fpathconf(STDIN_FILENO, _PC_VDISABLE)) < 0)
     err_quit("fpathconf error or _POSIX_VDISABLE is not supported");
 
   /* get terminal options */
