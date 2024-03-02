@@ -542,6 +542,59 @@ tty_raw(int fd)
   return(0);
 }
 
+int
+tty_cbreak(int fd)
+{
+  int             err;
+  struct termios  buf;
+
+  if (ttystate != RESET) {
+    errno = EINVAL;
+    return(-1);
+  }
+  if (tcgetattr(fd, &buf) < 0)
+    return(-1);
+  save_termios = buf; /* struct copy */
+
+  /*
+   * Turn off echo-output and exit canon mode
+   */
+  buf.c_lflag &= (ECHO | ICANON);
+
+  /*
+   * B case: 1 byte at least, timout unlimited
+   */
+  buf.c_cc[VMIN] = 1;
+  buf.c_cc[VTIME] = 0;
+  if (tcsetattr(fd, TCSAFLUSH, &buf) < 0)
+    return(-1);
+
+  /*
+   * All changes are applied?
+   * tcsetattr may return 0 sogar on partial update
+   */
+  if (tcgetattr(fd, &buf) < 0) {
+    err = errno;
+    tcsetattr(fd, TCSAFLUSH, &save_termios);
+    errno = err;
+    return(-1);
+  }
+  if ((buf.c_lflag & (ECHO | ICANON)) || buf.c_cc[VMIN] != 1 ||
+    buf.c_cc[VTIME] != 0) {
+    /*
+     * Updates are not applied entierely so far.
+     * Reset initial settings.
+     */
+    tcsetattr(fd, TCSAFLUSH, &save_termios);
+    errno = EINVAL;
+    return(-1);
+  }
+
+  ttystate = CBREAK;
+  ttysavefd = fd;
+  return(0);
+}
+
 struct termios *
 tty_termios(void)
 {
