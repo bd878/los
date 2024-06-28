@@ -7,6 +7,7 @@ race_write.txt
 file.hole
 bar
 foo
+*.trace
 *.out
 *.o
 *.obj
