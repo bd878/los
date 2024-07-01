@@ -3,3 +3,6 @@ linkstat.out : linkstat.c
 
 countlinks.out : countlinks.c
 	gcc countlinks.c -o countlinks.out
+
+forkfds.out : forkfds.c
+	gcc forkfds.c -o forkfds.out
