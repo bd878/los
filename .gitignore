@@ -17,3 +17,4 @@ foo
 *.swp
 *.swo
 *.gch
+*.patch
