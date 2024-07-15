@@ -23,7 +23,7 @@ int main(int argc, char** argv) {
     perror("fork");
     exit(1);
   } else if (cid == 0) { /* child */
-     if (execl("./print_envs.out", "print_envs", "./envs.txt", (char *)0) < 0) {
+     if (execl("./print_envs_main.out", "print_envs_main", "./envs.txt", (char *)0) < 0) {
       perror("execv");
       exit(1);
     }
