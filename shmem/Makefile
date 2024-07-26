@@ -4,11 +4,11 @@ get_shmem.out : get_shmem.c
 data_seg_end.out : data_seg_end.c
 	gcc data_seg_end.c -o data_seg_end.out
 
-attach_shmem.out : attach_shmem.c
-	gcc attach_shmem.c -o attach_shmem.out
+write_shmem.out : write_shmem.c sync_pipe.o detach_process.o
+	gcc write_shmem.c -o write_shmem.out sync_pipe.o detach_process.o
 
-fork_change_stack.out : fork_change_stack.c
-	gcc fork_change_stack.c -o fork_change_stack.out
+sync_pipe.o : sync_pipe.h sync_pipe.c
+	gcc sync_pipe.c -c
 
-write_shmem.out : write_shmem.c
-	gcc write_shmem.c -o write_shmem.out
+detach_process.o : detach_process.h detach_process.c
+	gcc detach_process.c -c
