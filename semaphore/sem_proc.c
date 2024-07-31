@@ -42,7 +42,7 @@ int main() {
     WAIT_PARENT(fd);
 
     bf.sem_num = 0;
-    bf.sem_op = -1;
+    bf.sem_op = -1; /* decrement by this value */
     bf.sem_flg = SEM_UNDO;
 
     if (semop(semid, &bf, 1) < 0) {
@@ -76,7 +76,7 @@ int main() {
   wait_sighup();
 
   bf.sem_num = 0;
-  bf.sem_op = 1;
+  bf.sem_op = 1; /* increment semaphore by this value */
   if (semop(semid, &bf, 1) < 0) {
     cleanup_sem(semid);
     exit(EXIT_FAILURE);

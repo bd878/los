@@ -65,12 +65,13 @@ WAIT_CHILD(int fd[2])
   }
 }
 
-void
+int
 TELL_CHILD(int fd[2])
 {
   if (write(fd[1], "p", 1) != 1) {
     fprintf(stderr, "[%d] failed to tell child: %s\n",
       getpid(), strerror(errno));
-    exit(EXIT_FAILURE);
+    return -1;
   }
+  return 0;
 }

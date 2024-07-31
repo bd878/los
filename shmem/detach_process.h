@@ -7,13 +7,9 @@
 /**
  * forks twicely,
  * detaches second children from proc group.
- * Receives pipe, where the proc send
- * its pid
+ * Returns direct child id
  */
-void detach(int*, void (*f)(int *));
+int detach(int*, void (*f)(int *));
 
-/**
- * waits until second children starts and
- * write to fd
- */
-void wait_child(int*, pid_t*);
+int wait_child(int);
+

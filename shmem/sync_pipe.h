@@ -15,5 +15,5 @@ WAIT_CHILD(int*);
 void
 TELL_PARENT(int*);
 
-void
+int
 TELL_CHILD(int*);
