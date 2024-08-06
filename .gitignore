@@ -4,6 +4,8 @@ dedup.txt
 dup_file.txt
 race_file.txt
 race_write.txt
+non_block.txt
+text_*.txt
 file.hole
 bar
 foo
