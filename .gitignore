@@ -20,3 +20,6 @@ foo
 *.swo
 *.gch
 *.patch
+*.so
+*.a
+*.o
