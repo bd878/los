@@ -34,6 +34,20 @@ static const Elf64_Sym *symbols;
 static int num_symbols;
 static const char *strtab = NULL;
 
+/* number of external symbols in the symbol table */
+static int num_ext_symbols = 0;
+
+struct ext_jump {
+	/* address to jump to */
+	uint8_t *addr;
+	/* uncondintional x64 JMP instruction */
+	/* should always be {0xff, 0x25, 0xf2, 0xff, 0xff, 0xff} */
+	/* so it would jump to an address stored at addr above */
+	uint8_t instr[6];
+};
+
+struct ext_jump *jumptable;
+
 typedef union {
 	const Elf64_Ehdr *hdr;
 	const uint8_t *base;
@@ -51,6 +65,13 @@ static uint8_t *data_runtime_base;
 static uint8_t *rodata_runtime_base;
 
 static objhdr obj;
+
+/* external dependencies for obj.o */
+static int my_puts(const char *s)
+{
+	puts("my_puts executed");
+	return puts(s);
+}
 
 static inline uint64_t page_align(uint64_t n)
 {
@@ -102,6 +123,28 @@ static const Elf64_Shdr *lookup_section(const char *name)
 	return NULL;
 }
 
+static void count_external_symbols(void)
+{
+	const Elf64_Shdr *rela_text_hdr = lookup_section(".rela.text");
+	if (!rela_text_hdr) {
+		fputs("failed to find .rela.text\n", stderr);
+		exit(ENOEXEC);
+	}
+
+	int num_relocations = rela_text_hdr->sh_size / rela_text_hdr->sh_entsize;
+	const Elf64_Rela *relocations = (Elf64_Rela *)(obj.base + rela_text_hdr->sh_offset);
+
+	for (int i = 0; i < num_relocations; i++) {
+		int symbol_idx = ELF64_R_SYM(relocations[i].r_info);
+
+		/* if there is no section associated with a symbol, it is
+		 * probably an external reference
+		 */
+		if (symbols[symbol_idx].st_shndx == SHN_UNDEF)
+			num_ext_symbols++;
+	}
+}
+
 static uint8_t *section_runtime_base(const Elf64_Shdr *section)
 {
 	const char *section_name = shstrtab + section->sh_name;
@@ -117,6 +160,17 @@ static uint8_t *section_runtime_base(const Elf64_Shdr *section)
 		return rodata_runtime_base;
 
 	fprintf(stderr, "No runtime base address for section %s\n", section_name);
+	exit(ENOENT);
+}
+
+static void *lookup_ext_function(const char *name)
+{
+	size_t name_len = strlen(name);
+
+	if (name_len = strlen("puts") && !strcmp(name, "puts"))
+		return my_puts;
+
+	fprintf(stderr, "no address for function %s\n", name);
 	exit(ENOENT);
 }
 
@@ -141,9 +195,34 @@ static void do_text_relocations(void)
 
 		/* where to patch .text */
 		uint8_t *patch_offset = text_runtime_base + relocations[i].r_offset;
-		/* symbol, with respect to which the relocations is performed */
-		uint8_t *symbol_address = section_runtime_base(&sections[symbols[symbol_idx].st_shndx])
-			+ symbols[symbol_idx].st_value;
+
+		/* symbol with respect to which the relocation is performed */
+		uint8_t *symbol_address;
+
+		/* if this is an external symbol */
+		if (symbols[symbol_idx].st_shndx == SHN_UNDEF) {
+			static int curr_jmp_idx = 0;
+
+			/* get external symbol/function address by name */
+			jumptable[curr_jmp_idx].addr = lookup_ext_function(strtab + symbols[symbol_idx].st_name);
+
+			/* x64 unconditional JMP with address stored at -14 bytes offset */
+			/* will use the address stored in addr above */
+			jumptable[curr_jmp_idx].instr[0] = 0xff;
+			jumptable[curr_jmp_idx].instr[1] = 0x25;
+			jumptable[curr_jmp_idx].instr[2] = 0xf2;
+			jumptable[curr_jmp_idx].instr[3] = 0xff;
+			jumptable[curr_jmp_idx].instr[4] = 0xff;
+			jumptable[curr_jmp_idx].instr[5] = 0xff;
+
+			/* resolve the relocation with respect to this unconditional JMP */
+			symbol_address = (uint8_t *)(&jumptable[curr_jmp_idx].instr);
+
+			curr_jmp_idx++;
+		} else {
+			symbol_address = section_runtime_base(&sections[symbols[symbol_idx].st_shndx]) +
+				symbols[symbol_idx].st_value;
+		}
 
 		switch (type)
 		{
@@ -212,11 +291,16 @@ static void parse_obj(void)
 		exit(ENOEXEC);
 	}
 
+	count_external_symbols();
+
 	/* allocate memory for `.text`, `.data` and `.rodata`
 	 * copies rounding up each section to whole pages
 	 */
-	text_runtime_base = mmap(NULL, page_align(text_hdr->sh_size) + page_align(data_hdr->sh_size)
-		+ page_align(rodata_hdr->sh_size), PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+	text_runtime_base = mmap(NULL, page_align(text_hdr->sh_size) + \
+					page_align(data_hdr->sh_size) + \
+					page_align(rodata_hdr->sh_size) + \
+					page_align(sizeof(struct ext_jump) * num_ext_symbols),
+					PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 	if (text_runtime_base == MAP_FAILED) {
 		perror("failed to allocate memory for .text");
 		exit(errno);
@@ -226,6 +310,8 @@ static void parse_obj(void)
 	data_runtime_base = text_runtime_base + page_align(text_hdr->sh_size);
 	/* .rodata will come after .data */
 	rodata_runtime_base = data_runtime_base + page_align(data_hdr->sh_size);
+	/* jumptable will come after .rodata */
+	jumptable = (struct ext_jump *)(rodata_runtime_base + page_align(rodata_hdr->sh_size));
 
 	/* copy the contents of `.text` section from the ELF file */
 	memcpy(text_runtime_base, obj.base + text_hdr->sh_offset, text_hdr->sh_size);
@@ -247,6 +333,12 @@ static void parse_obj(void)
 	/* make the `.rodata` copy readonly */
 	if (mprotect(rodata_runtime_base, page_align(rodata_hdr->sh_size), PROT_READ)) {
 		perror("failed to make .rodata readonly");
+		exit(errno);
+	}
+
+	/* make the jumptable readonly and executable */
+	if (mprotect(jumptable, page_align(sizeof(struct ext_jump) * num_ext_symbols), PROT_READ | PROT_EXEC)) {
+		perror("failed to make the jumptable executable");
 		exit(errno);
 	}
 }
@@ -286,6 +378,7 @@ static void execute_funcs(void)
 	const char *(*get_hello)(void);
 	int (*get_var)(void);
 	void (*set_var)(int num);
+	void (*say_hello)(void);
 
 	add5 = lookup_function("add5");
 	if (!add5) {
@@ -334,6 +427,15 @@ static void execute_funcs(void)
 
 	puts("executing get_var again...");
 	printf("get_var() = %d\n", get_var());
+
+	say_hello = lookup_function("say_hello");
+	if (!say_hello) {
+		fputs("failed to find say_hello function\n", stderr);
+		exit(ENOENT);
+	}
+
+	puts("executing say_hello...");
+	say_hello();
 }
 
 int main(void)

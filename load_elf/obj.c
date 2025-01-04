@@ -1,3 +1,10 @@
+#include <stdio.h>
+
+void say_hello(void)
+{
+	puts("hello, world!");
+}
+
 int add5(int num)
 {
 	return num + 5;
