@@ -20,6 +20,8 @@
 /* for errno */
 #include <errno.h>
 
+#define R_X86_64_PLT32 4
+
 /* sections table */
 static const Elf64_Shdr *sections;
 static const char *shstrtab = NULL;
@@ -92,6 +94,55 @@ static const Elf64_Shdr *lookup_section(const char *name)
 	return NULL;
 }
 
+static uint8_t *section_runtime_base(const Elf64_Shdr *section)
+{
+	const char *section_name = shstrtab + section->sh_name;
+	size_t section_name_len = strlen(section_name);
+
+	/* we only mmap .text section so far */
+	if (strlen(".text") == section_name_len && !strcmp(".text", section_name))
+		return text_runtime_base;
+
+	fprintf(stderr, "No runtime base address for section %s\n", section_name);
+	exit(ENOENT);
+}
+
+static void do_text_relocations(void)
+{
+	/* name .rela.text is a convention, but not a rule.
+	 * we need to examine actual name in rela_text_hdr, but skip it
+	 * for simplicity
+	 */
+	const Elf64_Shdr *rela_text_hdr = lookup_section(".rela.text");
+	if (!rela_text_hdr) {
+		fputs("failed to find .rela.text\n", stderr);
+		exit(ENOEXEC);
+	}
+
+	int num_relocations = rela_text_hdr->sh_size / rela_text_hdr->sh_entsize;
+	const Elf64_Rela *relocations = (Elf64_Rela *)(obj.base + rela_text_hdr->sh_offset);
+
+	for (int i = 0; i < num_relocations; i++) {
+		int symbol_idx = ELF64_R_SYM(relocations[i].r_info);
+		int type = ELF64_R_TYPE(relocations[i].r_info);
+
+		/* where to patch .text */
+		uint8_t *patch_offset = text_runtime_base + relocations[i].r_offset;
+		/* symbol, with respect to which the relocations is performed */
+		uint8_t *symbol_address = section_runtime_base(&sections[symbols[symbol_idx].st_shndx])
+			+ symbols[symbol_idx].st_value;
+
+		switch (type)
+		{
+		case R_X86_64_PLT32:
+			/* L + A - P, 32 bit output */
+			*((uint32_t *)patch_offset) = symbol_address + relocations[i].r_addend - patch_offset;
+			printf("calculated relocations: 0x%08x\n", *((uint32_t *)patch_offset));
+			break;
+		}
+	}
+}
+
 static void parse_obj(void)
 {
 	/* parse an object file and find add5 and add10 funcs */
@@ -142,6 +193,17 @@ static void parse_obj(void)
 
 	/* copy the contents of `.text` section from the ELF file */
 	memcpy(text_runtime_base, obj.base + text_hdr->sh_offset, text_hdr->sh_size);
+
+	do_text_relocations();
+
+	/* the first add5 callq argument is located at offset 0x20
+	 * and should be 0xffffffdc:
+	 * 0x1f is the instruction offset + 1 byte instruction prefix
+	 */
+	/* *((uint32_t *)(text_runtime_base + 0x1f + 1)) = 0xffffffdc; */
+
+	/* the second add5 callq argument is located at offset 0x2d and should be 0xffffffcf */
+	/* *((uint32_t *)(text_runtime_base + 0x2c + 1)) = 0xffffffcf; */
 
 	/* make the `.text` copy readonly and executable */
 	if (mprotect(text_runtime_base, page_align(text_hdr->sh_size), PROT_READ | PROT_EXEC)) {
