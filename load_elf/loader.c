@@ -20,6 +20,7 @@
 /* for errno */
 #include <errno.h>
 
+#define R_X86_64_PC32 2
 #define R_X86_64_PLT32 4
 
 /* sections table */
@@ -40,7 +41,14 @@ typedef union {
 
 static uint64_t page_size;
 
+/* runtime base address of the imported code */
 static uint8_t *text_runtime_base;
+
+/* runtime base of the .data section */
+static uint8_t *data_runtime_base;
+
+/* runtime base of the .rodata section */
+static uint8_t *rodata_runtime_base;
 
 static objhdr obj;
 
@@ -99,9 +107,14 @@ static uint8_t *section_runtime_base(const Elf64_Shdr *section)
 	const char *section_name = shstrtab + section->sh_name;
 	size_t section_name_len = strlen(section_name);
 
-	/* we only mmap .text section so far */
 	if (strlen(".text") == section_name_len && !strcmp(".text", section_name))
 		return text_runtime_base;
+
+	if (strlen(".data") == section_name_len && !strcmp(".data", section_name))
+		return data_runtime_base;
+
+	if (strlen(".rodata") == section_name_len && !strcmp(".rodata", section_name))
+		return rodata_runtime_base;
 
 	fprintf(stderr, "No runtime base address for section %s\n", section_name);
 	exit(ENOENT);
@@ -134,6 +147,8 @@ static void do_text_relocations(void)
 
 		switch (type)
 		{
+		case R_X86_64_PC32:
+			/* S + A - P, 32 bit output, S == L here */
 		case R_X86_64_PLT32:
 			/* L + A - P, 32 bit output */
 			*((uint32_t *)patch_offset) = symbol_address + relocations[i].r_addend - patch_offset;
@@ -183,35 +198,58 @@ static void parse_obj(void)
 		exit(ENOEXEC);
 	}
 
-	/* allocate memory for `.text` copy rounding it up to whole pages */
-	text_runtime_base = mmap(NULL, page_align(text_hdr->sh_size),
-		PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+	/* find the `.data` entry in the sections table */
+	const Elf64_Shdr *data_hdr = lookup_section(".data");
+	if (!data_hdr) {
+		fputs("failed to find .data\n", stderr);
+		exit(ENOEXEC);
+	}
+
+	/* find the `.rodata` entry in the sections table */
+	const Elf64_Shdr *rodata_hdr = lookup_section(".rodata");
+	if (!rodata_hdr) {
+		fputs("failed to find .rodata\n", stderr);
+		exit(ENOEXEC);
+	}
+
+	/* allocate memory for `.text`, `.data` and `.rodata`
+	 * copies rounding up each section to whole pages
+	 */
+	text_runtime_base = mmap(NULL, page_align(text_hdr->sh_size) + page_align(data_hdr->sh_size)
+		+ page_align(rodata_hdr->sh_size), PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 	if (text_runtime_base == MAP_FAILED) {
 		perror("failed to allocate memory for .text");
 		exit(errno);
 	}
 
+	/* .data will come right after .text */
+	data_runtime_base = text_runtime_base + page_align(text_hdr->sh_size);
+	/* .rodata will come after .data */
+	rodata_runtime_base = data_runtime_base + page_align(data_hdr->sh_size);
+
 	/* copy the contents of `.text` section from the ELF file */
 	memcpy(text_runtime_base, obj.base + text_hdr->sh_offset, text_hdr->sh_size);
+	/* copy .data */
+	memcpy(data_runtime_base, obj.base + data_hdr->sh_offset, data_hdr->sh_size);
+	/* copy .rodata */
+	memcpy(rodata_runtime_base, obj.base + rodata_hdr->sh_offset, rodata_hdr->sh_size);
 
 	do_text_relocations();
-
-	/* the first add5 callq argument is located at offset 0x20
-	 * and should be 0xffffffdc:
-	 * 0x1f is the instruction offset + 1 byte instruction prefix
-	 */
-	/* *((uint32_t *)(text_runtime_base + 0x1f + 1)) = 0xffffffdc; */
-
-	/* the second add5 callq argument is located at offset 0x2d and should be 0xffffffcf */
-	/* *((uint32_t *)(text_runtime_base + 0x2c + 1)) = 0xffffffcf; */
 
 	/* make the `.text` copy readonly and executable */
 	if (mprotect(text_runtime_base, page_align(text_hdr->sh_size), PROT_READ | PROT_EXEC)) {
 		perror("failed to make .text executable");
 		exit(errno);
 	}
-}
 
+	/* .data should remain read/write */
+
+	/* make the `.rodata` copy readonly */
+	if (mprotect(rodata_runtime_base, page_align(rodata_hdr->sh_size), PROT_READ)) {
+		perror("failed to make .rodata readonly");
+		exit(errno);
+	}
+}
 
 static void *lookup_function(const char *name)
 {
@@ -242,9 +280,12 @@ static void *lookup_function(const char *name)
 
 static void execute_funcs(void)
 {
-	/* execute add5 and add10 with some inputs */
+	/* pointers to imported functions */
 	int (*add5)(int);
 	int (*add10)(int);
+	const char *(*get_hello)(void);
+	int (*get_var)(void);
+	void (*set_var)(int num);
 
 	add5 = lookup_function("add5");
 	if (!add5) {
@@ -263,6 +304,36 @@ static void execute_funcs(void)
 
 	puts("executing add10... ");
 	printf("add10(%d) = %d\n", 42, add10(42));
+
+	get_hello = lookup_function("get_hello");
+	if (!get_hello) {
+		fputs("failed to find get_hello function\n", stderr);
+		exit(ENOENT);
+	}
+
+	puts("executing get_hello...");
+	printf("get_hello() = %s\n", get_hello());
+
+	get_var = lookup_function("get_var");
+	if (!get_var) {
+		fputs("failed to find get_var function\n", stderr);
+		exit(ENOENT);
+	}
+
+	puts("executing get_var...");
+	printf("get_var() = %d\n", get_var());
+
+	set_var = lookup_function("set_var");
+	if (!set_var) {
+		fputs("failed to find set_var function\n", stderr);
+		exit(ENOENT);
+	}
+
+	puts("executing set_var(42)...");
+	set_var(42);
+
+	puts("executing get_var again...");
+	printf("get_var() = %d\n", get_var());
 }
 
 int main(void)
