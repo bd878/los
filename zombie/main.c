@@ -35,9 +35,9 @@ int main()
 
 		if (sem_post(csem) < 0)
 			handle_error("sem_post");
-		if (sem_getvalue(csem, &val) < 0)
-			handle_error("sem_getvalue");
-		printf("child: sem value: %d\n", val);
+		printf("child blocked\n");
+		if (sem_wait(sem) < 0)
+			handle_error("sem_wait");
 		printf("child exits\n");
 		exit(EXIT_SUCCESS);
 	} else if (cid < 0) {
@@ -48,9 +48,6 @@ int main()
 
 	/* parent */
 	printf("pid=%d, cid=%d\n", getpid(), cid);
-	if (sem_getvalue(sem, &val) < 0)
-		handle_error("sem_getvalue");
-	printf("parent: sem value: %d\n", val);
 	if (sem_wait(sem) < 0)
 		handle_error("sem_wait");
 
