@@ -10,6 +10,7 @@
 #include <sys/stat.h>
 #include <sys/ioctl.h>
 #include <sys/wait.h>
+#include <sys/capability.h>
 
 /**
  * Clones process; 
@@ -31,6 +32,8 @@ int main()
 		err(EXIT_FAILURE, "fork");
 	} else if (cid == 0) {
 		/* child */
+		cap_t caps;
+		cap_value_t cap;
 
 		sem_t *sem2;
 		sem2 = sem_open("/sem", O_CREAT);
@@ -51,19 +54,37 @@ int main()
 
 		printf("uns uid=%d\n", uid);
 
-		if (sem_post(sem2) < 0)
+		caps = cap_get_proc();
+		if (!caps)
+			err(EXIT_FAILURE, "cap_get_proc");
+
+		for (cap = 0; cap <= CAP_LAST_CAP; cap++) {
+			cap_flag_value_t flag;
+
+			printf("%s\n", cap_to_name(cap));
+
+			if (cap_get_flag(caps, cap, CAP_PERMITTED, &flag) < 0)
+				err(EXIT_FAILURE, "cap_get_flag");
+
+			if (cap_set_flag(caps, CAP_EFFECTIVE, 1, &cap, flag) < 0)
+				err(EXIT_FAILURE, "cap_set_flag");
+		}
+
+		if (cap_set_proc(caps) < 0)
+			err(EXIT_FAILURE, "cap_set_flag");
+
+		if (sem_wait(sem) < 0)
 			err(EXIT_FAILURE, "sem_post");
 
+		printf("child exited\n");
 		exit(EXIT_SUCCESS);
 	}
 	/* parent */
 
 	printf("pid=%d, cid=%d\n", getpid(), cid);
-	printf("parent waits\n");
-	if (sem_wait(sem) < 0)
-		err(EXIT_FAILURE, "sem_wait");
+	printf("parent waits forever\n");
 
 	waitpid(-1, NULL, 0);
-	printf("parent exists\n");
+	printf("parent exits\n");
 	exit(EXIT_SUCCESS);
 }
