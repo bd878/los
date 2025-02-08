@@ -19,27 +19,17 @@ void print_stat(int fd);
 
 int main()
 {
-	char *cgroup = read_self_cgroup();
+	char *cgroup = read_cgroup(getpid());
 	char *next_cgroup;
-	char *cgroup_path = strdup(cgroup + STRLITERALLEN("0::"));
 	char *full_path = NULL;
 	char *next_full_path = NULL;
-	char *iterator;
 	char pidstr[sizeof(int) + 1];
 	size_t pidstr_len;
-	char separators[] = "\n";
 	int ret, fd, next_fd;
 
-	int i = 0;
-	for (char *p = NULL, *it = strtok_r(cgroup_path, separators, &p);
-		(iterator = it);
-		iterator = it = strtok_r(NULL, separators, &p), i++) {
-		printf("%d: %s\n", i, iterator); 
-	} 
+	printf("cgroup: %s\n", cgroup);
 
-	printf("cgroup: %s", cgroup);
-
-	full_path = concat_paths(DEFAULT_CGROUP_MOUNTPOINT, cgroup_path);
+	full_path = make_cgroup_path(cgroup);
 	if (full_path == NULL)
 		err(EXIT_FAILURE, "concat_paths");
 
@@ -72,7 +62,7 @@ int main()
 	if (write_nointr(next_fd, pidstr, pidstr_len) == -1)
 		err(EXIT_FAILURE, "write_nointr");
 
-	next_cgroup = read_self_cgroup();
+	next_cgroup = read_cgroup(getpid());
 	printf("next cgroup: %s\n", next_cgroup);
 
 	return 0;

@@ -19,6 +19,8 @@ int main()
 {
 	sem_t *sem;
 	int cid;
+	char *child_cgroup, *new_cgroup;
+	int ret;
 
 	pthread_mutexattr_t attr; 
 	pthread_mutex_t mutex;
@@ -37,11 +39,8 @@ int main()
 	} else if (cid == 0) {
 		/* child */
 		(void) pthread_mutex_lock(&mutex);
-		printf("children cgroup: %s\n", read_self_cgroup());
+		printf("children cgroup: %s\n", read_cgroup(getpid()));
 		(void) pthread_mutex_unlock(&mutex);
-
-		printf("child create cgroup \"test\"\n");
-		(void) mkdir("/sys/fs/cgroup/", 0770);		
 
 		printf("child waits\n");
 		if (sem_wait(sem) < 0)
@@ -55,8 +54,19 @@ int main()
 	printf("pid=%d, cid=%d\n", getpid(), cid);
 	
 	(void) pthread_mutex_lock(&mutex);
-	printf("parent cgoup: %s\n", read_self_cgroup());
+	printf("parent cgoup: %s\n", read_cgroup(getpid()));
 	(void) pthread_mutex_unlock(&mutex);
+
+	printf("put child in \"test\" cgroup\n");
+
+	child_cgroup = read_cgroup(cid);
+	new_cgroup = concat_paths(child_cgroup, "test");
+
+	ret = move_to_cgroup(new_cgroup, cid);
+	if (ret == -1)
+		err(EXIT_FAILURE, "move_to_cgroup");
+
+	printf("new child cgroup: %s\n", read_cgroup(cid));
 
 	printf("parent waits\n");
 	waitpid(-1, NULL, 0);

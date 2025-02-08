@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <errno.h>
 #include <stdlib.h>
+#include <fcntl.h>
 #include <string.h>
 #include <unistd.h>
 #include <stdarg.h>
@@ -20,6 +21,11 @@
 		__internal_ptr__;			\
 	})
 
+void cleanup_buffer(char **buf);
+
+#define __do_free			\
+	__attribute__((__cleanup__(cleanup_buffer)))	\
+
 void cleanup_file(FILE **fp)
 {
 	fclose(*fp);
@@ -27,7 +33,8 @@ void cleanup_file(FILE **fp)
 
 void cleanup_buffer(char **buf)
 {
-	free(*buf);
+	if (*buf != NULL)
+		free(*buf);
 }
 
 void *must_realloc(void *orig, size_t sz)
@@ -55,7 +62,7 @@ void append_line(char **dest, size_t oldlen, char *new, size_t newlen)
 	memcpy(*dest + oldlen, new, newlen + 1);
 }
 
-char *read_self_cgroup()
+char *read_cgroup(pid_t pid)
 {
 	FILE *fp __attribute__((__cleanup__(cleanup_file)));
 	char *buf __attribute__((__cleanup__(cleanup_buffer))) = NULL;
@@ -63,8 +70,11 @@ char *read_self_cgroup()
 	int pathn, linelen = 0;
 	size_t len, fulllen = 0;
 	char pathname[30];
+	char separators[] = "\n";
+	char *path_part;
+	char *path;
 
-	pathn = sprintf(pathname, "/proc/%d/cgroup", getpid());
+	pathn = sprintf(pathname, "/proc/%d/cgroup", pid);
 	if (pathn < 0)
 		return NULL;
 
@@ -77,7 +87,11 @@ char *read_self_cgroup()
 		fulllen += linelen;
 	}
 
-	return move_ptr(buf);
+	path = strdup(buf + STRLITERALLEN("0::"));
+
+	iterate_parts(path_part, path, separators) {}
+
+	return move_ptr(path);
 }
 
 char *make_path(const char *first, ...)
@@ -119,7 +133,7 @@ char *make_path(const char *first, ...)
 
 char *concat_paths(const char *first, const char *second)
 {
-	char *result __attribute__((__cleanup__(cleanup_buffer))) = NULL;
+	__do_free char *result = NULL;
 	int ret;
 	size_t len;
 	int pattern_type = 0;
@@ -153,4 +167,28 @@ ssize_t write_nointr(int fd, const void *buf, size_t count)
 	} while (ret < 0 && errno == EINTR);
 
 	return ret;
+}
+
+char *make_cgroup_path(const char *cgroup)
+{
+	return concat_paths(DEFAULT_CGROUP_MOUNTPOINT, cgroup);
+}
+
+int move_to_cgroup(const char *cgroup, pid_t pid)
+{
+	int fd;
+	char pidstr[sizeof(int) + 1];
+	size_t pidstr_len;
+
+	fd = open(concat_paths(concat_paths(DEFAULT_CGROUP_MOUNTPOINT, cgroup), "cgroup.procs"), O_WRONLY);
+	if (fd == -1)
+		return -1;
+
+	if ((pidstr_len = sprintf(pidstr, "%d", pid)) < 0)
+		return -1;
+
+	if (write_nointr(fd, pidstr, pidstr_len) == -1)
+		return -1;
+
+	return 0;
 }
