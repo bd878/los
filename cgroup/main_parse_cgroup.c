@@ -7,7 +7,8 @@
 #include <fcntl.h>
 #include <string.h>
 #include <stdlib.h>
-#include "cgroup_utils.h"
+
+#include "cgutils/cgroup_utils.h"
 
 #ifndef O_PATH
 #define O_PATH		010000000

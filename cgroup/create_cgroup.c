@@ -8,7 +8,7 @@
 #include <pthread.h>
 #include <sys/stat.h>
 
-#include "cgroup_utils.h"
+#include "cgutils/cgroup_utils.h"
 
 /*
  * Outputs current process's cgroup.
