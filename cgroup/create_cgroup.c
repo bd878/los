@@ -8,47 +8,12 @@
 #include <pthread.h>
 #include <sys/stat.h>
 
+#include "cgroup_utils.h"
+
 /*
  * Outputs current process's cgroup.
  * Moves process in new cgroup.
  */
-
-void free_buffer(char **buffer)
-{
-	printf("free buffer\n");
-	free(*buffer);
-}
-
-void cleanup_file(FILE **fp)
-{
-	printf("close file\n");
-	fclose(*fp);
-}
-
-int print_cgroup()
-{
-	size_t len = 80;
-	ssize_t readn;
-	char *buffer __attribute__((__cleanup__(free_buffer))) = malloc(len);
-	FILE *fp __attribute__((__cleanup__(cleanup_file)));
-	char pathname[20];
-
-	if (sprintf(pathname, "/proc/%d/cgroup", getpid()) < 0)
-		err(EXIT_FAILURE, "sprintf");
-
-	fp = fopen(pathname, "r");
-	if (fp == NULL) 
-		err(EXIT_FAILURE, "fopen");
-
-	readn = getline(&buffer, &len, fp);
-	if (readn < 0)
-		err(EXIT_FAILURE, "getline");
-	printf("readn=%ld, len=%ld\n", readn, len);
-
-	printf("%s\n", buffer);
-
-	return 0;
-}
 
 int main()
 {
@@ -72,9 +37,11 @@ int main()
 	} else if (cid == 0) {
 		/* child */
 		(void) pthread_mutex_lock(&mutex);
-		printf("children cgroup:\n");
-		print_cgroup();
+		printf("children cgroup: %s\n", read_self_cgroup());
 		(void) pthread_mutex_unlock(&mutex);
+
+		printf("child create cgroup \"test\"\n");
+		(void) mkdir("/sys/fs/cgroup/", 0770);		
 
 		printf("child waits\n");
 		if (sem_wait(sem) < 0)
@@ -88,8 +55,7 @@ int main()
 	printf("pid=%d, cid=%d\n", getpid(), cid);
 	
 	(void) pthread_mutex_lock(&mutex);
-	printf("parent cgoup:\n");
-	print_cgroup();
+	printf("parent cgoup: %s\n", read_self_cgroup());
 	(void) pthread_mutex_unlock(&mutex);
 
 	printf("parent waits\n");
