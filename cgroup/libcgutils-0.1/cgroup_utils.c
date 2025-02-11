@@ -5,6 +5,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <stdarg.h>
+#include <sys/stat.h>
 
 #include "cgroup_utils.h"
 
@@ -191,4 +192,22 @@ int move_to_cgroup(const char *cgroup, pid_t pid)
 		return -1;
 
 	return 0;
+}
+
+int create_cgroup(const char *cgroup)
+{
+	__do_free char *path = make_cgroup_path(cgroup);
+	__do_free char *path_dup = strdup(path);
+	__do_free char *acc = "";
+	char *part;
+	int ret = 0;
+
+	iterate_parts(part, path_dup, "/") {
+		acc = concat_paths(acc, part);
+		ret = mkdir(acc, 0755);
+		if (ret != 0 && errno != EEXIST)
+			return ret;
+	}
+
+	return ret;
 }

@@ -8,7 +8,7 @@
 #include <string.h>
 #include <stdlib.h>
 
-#include "cgutils/cgroup_utils.h"
+#include "libcgutils-0.1/cgroup_utils.h"
 
 #ifndef O_PATH
 #define O_PATH		010000000

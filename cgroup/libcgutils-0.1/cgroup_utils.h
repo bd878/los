@@ -16,8 +16,8 @@ char *read_cgroup(pid_t pid);
 char *make_path(const char *first, ...);
 char *concat_paths(const char *first, const char *second);
 ssize_t write_nointr(int fd, const void *buf, size_t count);
-int make_cgroup(const char *path);
 char *make_cgroup_path(const char *cgroup);
 int move_to_cgroup(const char *cgroup, pid_t pid);
+int create_cgroup(const char *path);
 
 #endif /* __CGROUP_UTILS_H */

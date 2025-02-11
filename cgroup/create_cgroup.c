@@ -8,7 +8,7 @@
 #include <pthread.h>
 #include <sys/stat.h>
 
-#include "cgutils/cgroup_utils.h"
+#include "libcgutils-0.1/cgroup_utils.h"
 
 /*
  * Outputs current process's cgroup.
@@ -39,7 +39,7 @@ int main()
 	} else if (cid == 0) {
 		/* child */
 		(void) pthread_mutex_lock(&mutex);
-		printf("children cgroup: %s\n", read_cgroup(getpid()));
+		printf("child cgroup: %s\n", read_cgroup(getpid()));
 		(void) pthread_mutex_unlock(&mutex);
 
 		printf("child waits\n");
@@ -54,13 +54,16 @@ int main()
 	printf("pid=%d, cid=%d\n", getpid(), cid);
 	
 	(void) pthread_mutex_lock(&mutex);
-	printf("parent cgoup: %s\n", read_cgroup(getpid()));
+	printf("parent cgroup: %s\n", read_cgroup(getpid()));
 	(void) pthread_mutex_unlock(&mutex);
 
 	printf("put child in \"test\" cgroup\n");
 
 	child_cgroup = read_cgroup(cid);
 	new_cgroup = concat_paths(child_cgroup, "test");
+	ret = create_cgroup(new_cgroup);
+	if (ret == -1)
+		err(EXIT_FAILURE, "create_cgroup");
 
 	ret = move_to_cgroup(new_cgroup, cid);
 	if (ret == -1)

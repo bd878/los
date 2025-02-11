@@ -6,7 +6,7 @@ subdirs:
 	done
 
 create_cgroup.out : subdirs create_cgroup.c
-	gcc -Wall create_cgroup.c -o create_cgroup.out -lpthread ./libcgutils-0.1/libcgutils.so
+	gcc -Wall -Wl,-rpath,./libcgutils-0.1/ create_cgroup.c -o create_cgroup.out -lpthread ./libcgutils-0.1/libcgutils.so
 
 main_parse_cgroup.out : subdirs main_parse_cgroup.c compiler.h
 	gcc -Wall -Wl,-rpath,./libcgutils-0.1/ main_parse_cgroup.c -o main_parse_cgroup.out ./libcgutils-0.1/libcgutils.so compiler.h
