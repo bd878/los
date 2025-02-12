@@ -9,23 +9,33 @@
 #include <limits.h>
 
 /*
- * Clone child on new root
- * and separate data segments.
+ * Clone child on new root.
  * Allocate new data segments with mmap.
+ * Execute given binary in new namespace
  */
 
 #define STACK_SIZE 1024 * 1024 // 1MB
 
-static int child()
+static int child(void *program)
 {
+	char *newargv[] = { program, NULL };
+	char *newenviron[] = { NULL };
+
 	printf("cid, uid: %d, %d\n", getpid(), getuid());
-	return EXIT_SUCCESS;
+	execve((const char *)program, newargv, newenviron);
+	perror("execve");
+	return -1;
 }
 
-int main()
+int main(int argc, const char *argv[])
 {
 	char *stack;
 	int ret;
+
+	if (argc < 2) {
+		printf("Usage: %s <executable>\n", argv[0]);
+		exit(EXIT_FAILURE);
+	}
 
 	printf("pid: %d, uid: %d\n", getpid(), getuid());
 
@@ -34,7 +44,7 @@ int main()
 	if (stack == MAP_FAILED)
 		err(EXIT_FAILURE, "mmap");
 	ret = clone(child, stack + STACK_SIZE,
-		CLONE_NEWCGROUP | CLONE_NEWUSER | SIGCHLD, NULL);
+		CLONE_NEWCGROUP | CLONE_NEWUSER | SIGCHLD, (void *)argv[1]);
 	if (ret == -1)
 		err(EXIT_FAILURE, "clone");
 
